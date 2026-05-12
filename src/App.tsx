@@ -165,6 +165,22 @@ const SINPUT = 'rgba(255,255,255,.7)';
 const SBORDER = 'rgba(0,0,0,.08)';
 const STEXT = '#1A1814';
 
+// ─── Breakpoint hook ──────────────────────────────────────────────────────
+type Bp = 'mobile' | 'tablet' | 'desktop';
+function useBreakpoint(): Bp {
+  const get = (): Bp => {
+    const w = window.innerWidth;
+    return w < 640 ? 'mobile' : w < 1024 ? 'tablet' : 'desktop';
+  };
+  const [bp, setBp] = useState<Bp>(get);
+  useEffect(() => {
+    const handler = () => setBp(get());
+    window.addEventListener('resize', handler, { passive: true });
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  return bp;
+}
+
 // ─── Animated value ───────────────────────────────────────────────────────
 function Val({ v }: { v: string }) {
   return <span key={v} style={{ display: 'inline-block', animation: 'fadeUp .22s ease' }}>{v}</span>;
@@ -183,7 +199,14 @@ function SInput({ value, onChange, prefix, suffix, step, min, max }: {
         type="number" value={value} step={step ?? 1} min={min} max={max}
         onChange={e => onChange(+e.target.value)}
         onFocus={() => setFoc(true)} onBlur={() => setFoc(false)}
-        style={{ width: '100%', background: SINPUT, border: `1.5px solid ${foc ? '#2563EB' : 'rgba(0,0,0,.1)'}`, borderRadius: 6, padding: `8px ${suffix ? 30 : 10}px 8px ${prefix ? 26 : 10}px`, color: STEXT, fontFamily: 'JetBrains Mono,monospace', fontSize: 13, outline: 'none', transition: 'border-color .15s' }}
+        style={{
+          width: '100%', background: SINPUT,
+          border: `1.5px solid ${foc ? '#2563EB' : 'rgba(0,0,0,.1)'}`,
+          borderRadius: 6,
+          padding: `10px ${suffix ? 30 : 10}px 10px ${prefix ? 26 : 10}px`,
+          color: STEXT, fontFamily: 'JetBrains Mono,monospace', fontSize: 13,
+          outline: 'none', transition: 'border-color .15s', minHeight: 44,
+        }}
       />
       {suffix && <span style={{ position: 'absolute', right: 10, color: SMUTED, fontSize: 12, pointerEvents: 'none' }}>{suffix}</span>}
     </div>
@@ -197,7 +220,12 @@ function SSelect({ value, onChange, options }: {
     <div style={{ position: 'relative' }}>
       <select
         value={value} onChange={e => onChange(e.target.value)}
-        style={{ width: '100%', background: SINPUT, border: `1px solid ${SBORDER}`, borderRadius: 6, padding: '8px 26px 8px 10px', color: STEXT, fontFamily: 'DM Sans,sans-serif', fontSize: 12, outline: 'none' }}
+        style={{
+          width: '100%', background: SINPUT, border: `1px solid ${SBORDER}`,
+          borderRadius: 6, padding: '10px 26px 10px 10px',
+          color: STEXT, fontFamily: 'DM Sans,sans-serif', fontSize: 12,
+          outline: 'none', minHeight: 44,
+        }}
       >
         {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
       </select>
@@ -208,8 +236,8 @@ function SSelect({ value, onChange, options }: {
 
 function SField({ label, tip, children }: { label: string; tip?: string; children: React.ReactNode }) {
   return (
-    <div style={{ marginBottom: 10 }} title={tip}>
-      <div style={{ fontSize: 9, fontWeight: 700, color: SMUTED, textTransform: 'uppercase', letterSpacing: '.09em', marginBottom: 5 }}>
+    <div style={{ marginBottom: 12 }} title={tip}>
+      <div style={{ fontSize: 10, fontWeight: 700, color: SMUTED, textTransform: 'uppercase', letterSpacing: '.09em', marginBottom: 6 }}>
         {label}{tip && <span style={{ marginLeft: 3, opacity: .7, cursor: 'help' }}>ⓘ</span>}
       </div>
       {children}
@@ -225,12 +253,183 @@ function SSection({ title, children, open: initOpen = true }: {
     <div style={{ borderTop: `1px solid ${SBORDER}`, paddingTop: 14, marginBottom: 4 }}>
       <button
         onClick={() => setOpen(v => !v)}
-        style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer', marginBottom: open ? 12 : 2, padding: 0 }}
+        style={{
+          display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center',
+          background: 'none', border: 'none', cursor: 'pointer',
+          marginBottom: open ? 12 : 2, padding: '4px 0', minHeight: 36,
+        }}
       >
-        <span style={{ fontSize: 9, fontWeight: 800, color: SMUTED, textTransform: 'uppercase', letterSpacing: '.12em', fontFamily: 'DM Sans' }}>{title}</span>
+        <span style={{ fontSize: 10, fontWeight: 800, color: SMUTED, textTransform: 'uppercase', letterSpacing: '.12em', fontFamily: 'DM Sans' }}>{title}</span>
         <span style={{ fontSize: 9, color: SMUTED, opacity: .7 }}>{open ? '▲' : '▼'}</span>
       </button>
       {open && <div style={{ paddingBottom: 10 }}>{children}</div>}
+    </div>
+  );
+}
+
+// ─── Sidebar fields (shared by sidebar, drawer, bottom sheet) ─────────────
+function SidebarFields({ loan, set, busy }: {
+  loan: LoanFlat;
+  set: <K extends keyof LoanFlat>(k: K, v: LoanFlat[K]) => void;
+  busy: boolean;
+}) {
+  return (
+    <>
+      <SSection title="Loan Details">
+        <SField label="Principal Outstanding" tip="Your loan balance as of the last payment date.">
+          <SInput value={loan.principal} onChange={v => set('principal', v)} prefix="R" step={1000} min={1} />
+        </SField>
+        <SField label="Monthly Instalment" tip="Your normal monthly instalment debited each month.">
+          <SInput value={loan.instalment} onChange={v => set('instalment', v)} prefix="R" step={500} min={1} />
+        </SField>
+        <SField label="Payment Day of Month" tip="Which day of the month does your payment come off?">
+          <SInput value={loan.payDay} onChange={v => set('payDay', Math.max(1, Math.min(31, Math.round(v))))} step={1} min={1} max={31} />
+        </SField>
+      </SSection>
+
+      <SSection title="Interest Rules">
+        <SField label="Annual Rate (%)" tip="Your loan's interest rate per year.">
+          <SInput value={loan.annualRate} onChange={v => set('annualRate', v)} suffix="%" step={0.01} min={0.01} />
+        </SField>
+        <SField label="Day Count Convention" tip="How your bank counts days. Most SA banks use ACT/365.">
+          <SSelect value={loan.convention} onChange={v => set('convention', v)} options={[['ACT/365', 'ACT/365 (Most common in SA)'], ['ACT/366', 'ACT/366'], ['ACT/ACT', 'ACT/ACT'], ['30/360 ISDA', '30/360 ISDA (US)']]} />
+        </SField>
+        <SField label="Interest Posting Rule" tip="How interest gets added to your loan each month.">
+          <SSelect value={loan.postingRule} onChange={v => set('postingRule', v)} options={[['POST_MONTHLY_TO_INTEREST_DUE', 'Post to Interest Due (Most common)'], ['CAPITALISE_MONTHLY', 'Capitalise Monthly (Rare)']]} />
+        </SField>
+        <SField label="Interest Posting Day (1–31)" tip="Day of each month when interest is posted.">
+          <SInput value={loan.postingDay} onChange={v => set('postingDay', Math.max(1, Math.min(31, Math.round(v))))} step={1} min={1} max={31} />
+        </SField>
+      </SSection>
+
+      <SSection title="Payment Rules" open={false}>
+        <SField label="Interest Settlement Rule" tip="When you pay, what interest gets deducted?">
+          <SSelect value={loan.settlementRule} onChange={v => set('settlementRule', v)} options={[['SETTLE_POSTED_PLUS_ACCRUED', 'Posted + Accrued (Recommended)'], ['SETTLE_POSTED_ONLY', 'Posted Only']]} />
+        </SField>
+        <SField label="Weekend Payment Handling" tip="If payment falls on a weekend, when does it process?">
+          <SSelect value={loan.weekendRule} onChange={v => set('weekendRule', v)} options={[['NEXT_BUSINESS_DAY', 'Next Business Day (Most common)'], ['PREV_BUSINESS_DAY', 'Previous Business Day'], ['NONE', 'No Adjustment']]} />
+        </SField>
+        <div style={{ background: 'rgba(0,0,0,.05)', border: `1px solid ${SBORDER}`, borderRadius: 6, padding: '8px 10px', fontSize: 11, color: SMUTED, lineHeight: 1.6, marginTop: 2 }}>
+          <span style={{ color: '#374151', fontWeight: 600 }}>Payment order:</span> Interest Due → Principal
+        </div>
+      </SSection>
+
+      {busy && (
+        <div style={{ padding: '8px 0', fontSize: 10, fontWeight: 700, color: '#059669', letterSpacing: '.1em', textTransform: 'uppercase', borderTop: '1px solid rgba(0,0,0,.07)', marginTop: 8, animation: 'pulse 1.2s infinite' }}>
+          ⟳ Recalculating
+        </div>
+      )}
+    </>
+  );
+}
+
+// ─── Bottom sheet (mobile) ────────────────────────────────────────────────
+function BottomSheet({ open, onClose, children }: { open: boolean; onClose: () => void; children: React.ReactNode }) {
+  return (
+    <>
+      <div
+        onClick={onClose}
+        style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 200,
+          opacity: open ? 1 : 0, pointerEvents: open ? 'auto' : 'none',
+          transition: 'opacity .25s',
+        }}
+      />
+      <div style={{
+        position: 'fixed', left: 0, right: 0, bottom: 0, height: '88vh',
+        background: 'rgba(255,255,255,.97)', backdropFilter: 'blur(24px)',
+        WebkitBackdropFilter: 'blur(24px)',
+        borderRadius: '20px 20px 0 0', zIndex: 201,
+        transform: open ? 'translateY(0)' : 'translateY(100%)',
+        transition: 'transform .32s cubic-bezier(.32,.72,0,1)',
+        display: 'flex', flexDirection: 'column',
+        boxShadow: '0 -8px 40px rgba(0,0,0,.15)',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '14px 0 6px', flexShrink: 0 }}>
+          <div style={{ width: 40, height: 4, borderRadius: 2, background: 'rgba(0,0,0,.14)' }} />
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 20px 14px', flexShrink: 0, borderBottom: '1px solid rgba(0,0,0,.07)' }}>
+          <div>
+            <div style={{ fontSize: 8, fontWeight: 800, color: 'rgba(0,0,0,.3)', letterSpacing: '.2em', textTransform: 'uppercase', marginBottom: 2 }}>South Africa</div>
+            <div style={{ fontFamily: 'Syne,sans-serif', fontSize: 18, fontWeight: 800, color: '#1A1814' }}>Loan Settings</div>
+          </div>
+          <button onClick={onClose} style={{ background: 'rgba(0,0,0,.07)', border: 'none', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, color: '#1A1814', cursor: 'pointer' }}>×</button>
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '4px 20px 48px', overscrollBehavior: 'contain' } as React.CSSProperties}>
+          {children}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ─── Sidebar drawer (tablet) ──────────────────────────────────────────────
+function SidebarDrawer({ open, onClose, children }: { open: boolean; onClose: () => void; children: React.ReactNode }) {
+  return (
+    <>
+      <div
+        onClick={onClose}
+        style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,.38)', zIndex: 200,
+          opacity: open ? 1 : 0, pointerEvents: open ? 'auto' : 'none',
+          transition: 'opacity .25s',
+        }}
+      />
+      <div className="glass-sidebar" style={{
+        position: 'fixed', left: 0, top: 0, bottom: 0, width: 300,
+        zIndex: 201,
+        transform: open ? 'translateX(0)' : 'translateX(-100%)',
+        transition: 'transform .28s cubic-bezier(.32,.72,0,1)',
+        overflowY: 'auto', display: 'flex', flexDirection: 'column',
+        boxShadow: open ? '4px 0 40px rgba(0,0,0,.14)' : 'none',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '22px 20px 12px', flexShrink: 0 }}>
+          <div>
+            <div style={{ fontSize: 8, fontWeight: 800, color: 'rgba(0,0,0,.3)', letterSpacing: '.2em', textTransform: 'uppercase', marginBottom: 6 }}>South Africa</div>
+            <div style={{ fontFamily: 'Syne,sans-serif', fontSize: 20, fontWeight: 800, color: '#1A1814', lineHeight: 1.15 }}>Loan Payoff<br />Simulator</div>
+            <div style={{ fontSize: 11, color: SMUTED, marginTop: 8, lineHeight: 1.5 }}>Daily-accurate interest accrual. Results update live.</div>
+          </div>
+          <button onClick={onClose} style={{ background: 'rgba(0,0,0,.07)', border: 'none', borderRadius: '50%', width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, color: '#1A1814', cursor: 'pointer', flexShrink: 0, marginTop: 2 }}>×</button>
+        </div>
+        <div style={{ flex: 1, padding: '4px 20px 24px', overflowY: 'auto' }}>
+          {children}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ─── Mobile / tablet header ───────────────────────────────────────────────
+function MobileHeader({ onOpenConfig, busy, bp }: { onOpenConfig: () => void; busy: boolean; bp: Bp }) {
+  return (
+    <div style={{
+      position: 'sticky', top: 0, zIndex: 100,
+      background: 'rgba(255,255,255,.88)',
+      backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
+      borderBottom: '1px solid rgba(0,0,0,.08)',
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      padding: '0 16px', height: 56, flexShrink: 0,
+    }}>
+      <div>
+        <div style={{ fontSize: 8, fontWeight: 800, color: 'rgba(0,0,0,.28)', letterSpacing: '.18em', textTransform: 'uppercase', lineHeight: 1 }}>South Africa</div>
+        <div style={{ fontFamily: 'Syne,sans-serif', fontSize: bp === 'tablet' ? 17 : 15, fontWeight: 800, color: '#1A1814', lineHeight: 1.2, marginTop: 2 }}>
+          Loan Payoff Simulator
+        </div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        {busy && <span style={{ fontSize: 13, fontWeight: 700, color: '#059669', animation: 'pulse 1.2s infinite' }}>⟳</span>}
+        <button
+          onClick={onOpenConfig}
+          style={{
+            background: '#1A1814', color: '#fff', border: 'none',
+            borderRadius: 9, padding: '0 16px',
+            fontSize: 12, fontWeight: 700, letterSpacing: '.02em',
+            cursor: 'pointer', height: 40, whiteSpace: 'nowrap',
+          }}
+        >
+          {bp === 'tablet' ? '☰  Settings' : '⚙  Configure'}
+        </button>
+      </div>
     </div>
   );
 }
@@ -342,14 +541,14 @@ function Timeline({ base, scen, hasExtra }: { base: AdaptedResult; scen: Adapted
   ];
   return (
     <div>
-      <div style={{ fontSize: 9, fontWeight: 700, color: '#ADA9A2', textTransform: 'uppercase', letterSpacing: '.09em', marginBottom: 10 }}>Loan Timeline</div>
+      <div style={{ fontSize: 10, fontWeight: 700, color: '#ADA9A2', textTransform: 'uppercase', letterSpacing: '.09em', marginBottom: 10 }}>Loan Timeline</div>
       {rows.map(row => (
         <div key={row.label} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
           <div style={{ width: 72, fontSize: 11, color: '#9CA3AF', flexShrink: 0 }}>{row.label}</div>
           <div style={{ flex: 1, height: 8, background: '#EDE9E3', borderRadius: 4, overflow: 'hidden' }}>
             <div style={{ width: `${(row.m / maxM) * 100}%`, height: '100%', background: row.c, borderRadius: 4, transition: 'width .45s ease' }} />
           </div>
-          <div style={{ width: 56, fontFamily: 'JetBrains Mono', fontSize: 11, fontWeight: 600, color: row.c, textAlign: 'right', flexShrink: 0 }}>{fmtMonths(row.m)}</div>
+          <div style={{ minWidth: 48, fontFamily: 'JetBrains Mono', fontSize: 11, fontWeight: 600, color: row.c, textAlign: 'right', flexShrink: 0 }}>{fmtMonths(row.m)}</div>
         </div>
       ))}
     </div>
@@ -357,7 +556,7 @@ function Timeline({ base, scen, hasExtra }: { base: AdaptedResult; scen: Adapted
 }
 
 // ─── Amortisation Table ───────────────────────────────────────────────────
-function AmortTable({ base, scen, hasExtra }: { base: AdaptedResult; scen: AdaptedResult | null; hasExtra: boolean }) {
+function AmortTable({ base, scen, hasExtra, bp }: { base: AdaptedResult; scen: AdaptedResult | null; hasExtra: boolean; bp: Bp }) {
   const [view, setView] = useState<'scenario' | 'baseline'>('scenario');
   const active = hasExtra && view === 'scenario' && scen ? scen : base;
   const months = active.months;
@@ -377,17 +576,21 @@ function AmortTable({ base, scen, hasExtra }: { base: AdaptedResult; scen: Adapt
     t: rows.reduce((s, r) => s + r.totalPaid, 0),
   } : null;
 
-  const th: React.CSSProperties = { padding: '8px 12px', fontSize: 9, fontWeight: 700, color: '#9CA3AF', textAlign: 'right', textTransform: 'uppercase', letterSpacing: '.06em', borderBottom: '1.5px solid #E4E0DA', whiteSpace: 'nowrap', background: '#FAFAF8', position: 'sticky', top: 0 };
-  const td: React.CSSProperties = { padding: '7px 12px', fontSize: 12, fontFamily: 'JetBrains Mono,monospace', textAlign: 'right', color: '#374151' };
+  const isMobile = bp === 'mobile';
+  const cellPad = isMobile ? '6px 8px' : '7px 12px';
+  const cellFs = isMobile ? 11 : 12;
+
+  const th: React.CSSProperties = { padding: isMobile ? '7px 8px' : '8px 12px', fontSize: 9, fontWeight: 700, color: '#9CA3AF', textAlign: 'right', textTransform: 'uppercase', letterSpacing: '.06em', borderBottom: '1.5px solid #E4E0DA', whiteSpace: 'nowrap', background: '#FAFAF8', position: 'sticky', top: 0 };
+  const td: React.CSSProperties = { padding: cellPad, fontSize: cellFs, fontFamily: 'JetBrains Mono,monospace', textAlign: 'right', color: '#374151' };
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', background: '#FAFAF8', borderBottom: '1px solid #E4E0DA', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: '#FAFAF8', borderBottom: '1px solid #E4E0DA', flexWrap: 'wrap' }}>
         {hasExtra && (
           <div style={{ display: 'flex', background: '#EDE9E3', borderRadius: 6, padding: 2, gap: 2 }}>
             {(['scenario', 'baseline'] as const).map(v => (
               <button key={v} onClick={() => { setView(v); setYr('all'); }}
-                style={{ padding: '4px 10px', borderRadius: 5, border: 'none', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans', background: view === v ? '#fff' : 'transparent', color: view === v ? '#1A1814' : '#9CA3AF', boxShadow: view === v ? '0 1px 3px rgba(0,0,0,.1)' : 'none', transition: 'all .15s' }}>
+                style={{ padding: '4px 10px', borderRadius: 5, border: 'none', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans', background: view === v ? '#fff' : 'transparent', color: view === v ? '#1A1814' : '#9CA3AF', boxShadow: view === v ? '0 1px 3px rgba(0,0,0,.1)' : 'none', transition: 'all .15s', minHeight: 32 }}>
                 {v === 'scenario' ? 'With Extras' : 'Baseline'}
               </button>
             ))}
@@ -395,25 +598,27 @@ function AmortTable({ base, scen, hasExtra }: { base: AdaptedResult; scen: Adapt
         )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <label style={{ fontSize: 11, color: '#9CA3AF' }}>Year:</label>
-          <select value={yr} onChange={e => setYr(e.target.value)} style={{ border: '1px solid #E4E0DA', borderRadius: 5, padding: '4px 22px 4px 8px', fontSize: 11, background: '#fff', appearance: 'none', backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%239CA3AF'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 7px center' }}>
+          <select value={yr} onChange={e => setYr(e.target.value)} style={{ border: '1px solid #E4E0DA', borderRadius: 5, padding: '4px 22px 4px 8px', fontSize: 11, background: '#fff', appearance: 'none', backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%239CA3AF'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 7px center', minHeight: 34 }}>
             <option value="all">All Years</option>
             {years.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
         </div>
         <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#9CA3AF', cursor: 'pointer' }}>
-          <input type="checkbox" checked={pmtOnly} onChange={e => setPmtOnly(e.target.checked)} /> Payment months only
+          <input type="checkbox" checked={pmtOnly} onChange={e => setPmtOnly(e.target.checked)} /> {isMobile ? 'Pmt months' : 'Payment months only'}
         </label>
-        <div style={{ fontSize: 10, color: '#9CA3AF', marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 5 }}>
-          <span style={{ width: 10, height: 10, background: '#DBEAFE', border: '1px solid #93C5FD', display: 'inline-block' }} /> Lump sum month
-        </div>
+        {!isMobile && (
+          <div style={{ fontSize: 10, color: '#9CA3AF', marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 5 }}>
+            <span style={{ width: 10, height: 10, background: '#DBEAFE', border: '1px solid #93C5FD', display: 'inline-block' }} /> Lump sum month
+          </div>
+        )}
       </div>
 
       {yrSum && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', background: '#EFF6FF', borderBottom: '1px solid #BFDBFE' }}>
-          {([['Interest Accrued', yrSum.a], ['Interest Paid', yrSum.p], ['Principal Repaid', yrSum.pr], ['Total Paid', yrSum.t]] as [string, number][]).map(([l, v]) => (
-            <div key={l} style={{ padding: '10px 14px', borderRight: '1px solid #BFDBFE' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(4,1fr)', background: '#EFF6FF', borderBottom: '1px solid #BFDBFE' }}>
+          {([['Int. Accrued', yrSum.a], ['Int. Paid', yrSum.p], ['Principal Repaid', yrSum.pr], ['Total Paid', yrSum.t]] as [string, number][]).map(([l, v]) => (
+            <div key={l} style={{ padding: isMobile ? '8px 10px' : '10px 14px', borderRight: '1px solid #BFDBFE' }}>
               <div style={{ fontSize: 9, fontWeight: 700, color: '#1D4ED8', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 3 }}>{l}</div>
-              <div style={{ fontFamily: 'JetBrains Mono', fontSize: 13, fontWeight: 600, color: '#1E3A8A' }}>{fmt(v)}</div>
+              <div style={{ fontFamily: 'JetBrains Mono', fontSize: isMobile ? 12 : 13, fontWeight: 600, color: '#1E3A8A' }}>{fmt(v)}</div>
             </div>
           ))}
         </div>
@@ -423,17 +628,20 @@ function AmortTable({ base, scen, hasExtra }: { base: AdaptedResult; scen: Adapt
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr>
-              {([['Month', 'left'], ['Int. Accrued', 'right'], ['Int. Paid', 'right'], ['Total Paid', 'right'], ['Principal ↓', 'right'], ['Balance', 'right']] as [string, 'left' | 'right'][]).map(([l, a]) => (
-                <th key={l} style={{ ...th, textAlign: a }}>{l}</th>
-              ))}
+              <th style={{ ...th, textAlign: 'left' }}>Month</th>
+              {!isMobile && <th style={th}>Int. Accrued</th>}
+              {!isMobile && <th style={th}>Int. Paid</th>}
+              <th style={th}>Total Paid</th>
+              <th style={th}>Principal ↓</th>
+              <th style={th}>Balance</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((row, i) => (
               <tr key={row.ym} style={{ background: row.hasLumpSum ? '#DBEAFE' : i % 2 === 0 ? '#fff' : '#FAFAF8', borderBottom: '1px solid #F3F1EC' }}>
                 <td style={{ ...td, textAlign: 'left', color: row.hasLumpSum ? '#1E3A8A' : '#6B7280', fontWeight: row.hasLumpSum ? 600 : 400 }}>{row.ym}</td>
-                <td style={td}>{fmt(row.interestAccrued)}</td>
-                <td style={td}>{fmt(row.interestPaid)}</td>
+                {!isMobile && <td style={td}>{fmt(row.interestAccrued)}</td>}
+                {!isMobile && <td style={td}>{fmt(row.interestPaid)}</td>}
                 <td style={{ ...td, color: row.totalPaid > .01 ? '#111' : '#D1D5DB' }}>{fmt(row.totalPaid)}</td>
                 <td style={{ ...td, color: '#2563EB' }}>{fmt(row.principalReduction)}</td>
                 <td style={{ ...td, fontWeight: 700, color: row.endBalance <= .01 ? '#16A34A' : '#111' }}>{row.endBalance <= .01 ? '✓' : fmt(row.endBalance)}</td>
@@ -459,15 +667,15 @@ function LumpModal({ editing, onSave, onClose }: {
   const [date, setDate] = useState(editing?.date ?? today);
   const [amount, setAmount] = useState(editing ? String(editing.amount) : '');
   const [label, setLabel] = useState(editing?.label ?? '');
-  const inp: React.CSSProperties = { width: '100%', border: '1.5px solid #E4E0DA', borderRadius: 8, padding: '10px 12px', fontSize: 14, color: '#1A1814', background: '#fff', fontFamily: 'DM Sans', outline: 'none', transition: 'border-color .15s' };
+  const inp: React.CSSProperties = { width: '100%', border: '1.5px solid #E4E0DA', borderRadius: 8, padding: '10px 12px', fontSize: 14, color: '#1A1814', background: '#fff', fontFamily: 'DM Sans', outline: 'none', transition: 'border-color .15s', minHeight: 44 };
   const save = () => {
     if (!date || !amount || +amount <= 0) { alert('Please enter a valid date and amount'); return; }
     onSave({ date, amount: +amount, label });
     onClose();
   };
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300 }} onClick={onClose}>
-      <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: 380, boxShadow: '0 24px 60px rgba(0,0,0,.25)' }} onClick={e => e.stopPropagation()}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300, padding: '0 16px' }} onClick={onClose}>
+      <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: 'min(380px, 100%)', boxShadow: '0 24px 60px rgba(0,0,0,.25)' }} onClick={e => e.stopPropagation()}>
         <h2 style={{ fontFamily: 'Syne,sans-serif', fontSize: 18, fontWeight: 800, marginBottom: 6 }}>{editing ? 'Edit' : 'Add'} Lump Sum</h2>
         <p style={{ fontSize: 12, color: '#9CA3AF', marginBottom: 22, lineHeight: 1.6 }}>One-off payments applied interest-first via waterfall.</p>
         {([
@@ -486,8 +694,8 @@ function LumpModal({ editing, onSave, onClose }: {
           </div>
         ))}
         <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
-          <button onClick={onClose} style={{ flex: 1, padding: 11, border: '1.5px solid #E4E0DA', borderRadius: 8, background: '#fff', color: '#374151', fontSize: 13, fontWeight: 600 }}>Cancel</button>
-          <button onClick={save} style={{ flex: 1, padding: 11, border: 'none', borderRadius: 8, background: '#059669', color: '#fff', fontSize: 13, fontWeight: 700 }}>{editing ? 'Update' : 'Add'} Payment</button>
+          <button onClick={onClose} style={{ flex: 1, padding: 11, border: '1.5px solid #E4E0DA', borderRadius: 8, background: '#fff', color: '#374151', fontSize: 13, fontWeight: 600, minHeight: 44, cursor: 'pointer' }}>Cancel</button>
+          <button onClick={save} style={{ flex: 1, padding: 11, border: 'none', borderRadius: 8, background: '#059669', color: '#fff', fontSize: 13, fontWeight: 700, minHeight: 44, cursor: 'pointer' }}>{editing ? 'Update' : 'Add'} Payment</button>
         </div>
       </div>
     </div>
@@ -506,12 +714,17 @@ const TABS = [
 ];
 
 export default function App() {
+  const bp = useBreakpoint();
+  const isMobile = bp === 'mobile';
+  const isDesktop = bp === 'desktop';
+
   const [loan, setLoan] = useState<LoanFlat>(loadState);
   const [result, setResult] = useState<Result>(null);
   const [busy, setBusy] = useState(false);
   const [activeChart, setActiveChart] = useState<'balance' | 'monthly' | 'cumint'>('balance');
   const [showTable, setShowTable] = useState(false);
   const [modal, setModal] = useState<{ mode: 'add' | 'edit'; idx: number | null } | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const set = <K extends keyof LoanFlat>(k: K, v: LoanFlat[K]) => setLoan(p => ({ ...p, [k]: v }));
 
@@ -569,71 +782,58 @@ export default function App() {
   const chartSeries = hasExtra ? tab.series : [tab.series[0]];
   const chartData = isOk(result) ? result.chartData : [];
 
+  const contentPad = isMobile ? '12px 14px' : bp === 'tablet' ? '16px 20px' : '20px 24px';
+  const contentGap = isMobile ? 10 : 14;
+  const chartH = isMobile ? 160 : 200;
+
   return (
-    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+    <div style={isDesktop
+      ? { display: 'flex', height: '100vh', overflow: 'hidden' }
+      : { display: 'flex', flexDirection: 'column', minHeight: '100vh' }
+    }>
 
-      {/* ══ SIDEBAR ══ */}
-      <div className="glass-sidebar" style={{ width: 288, flexShrink: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ padding: '22px 20px 12px' }}>
-          <div style={{ fontSize: 8, fontWeight: 800, color: 'rgba(0,0,0,.3)', letterSpacing: '.2em', textTransform: 'uppercase', marginBottom: 6 }}>South Africa</div>
-          <div style={{ fontFamily: 'Syne,sans-serif', fontSize: 20, fontWeight: 800, color: '#1A1814', lineHeight: 1.15 }}>Loan Payoff<br />Simulator</div>
-          <div style={{ fontSize: 11, color: SMUTED, marginTop: 8, lineHeight: 1.5 }}>Daily-accurate interest accrual. Results update live.</div>
-        </div>
+      {/* ── Mobile / tablet sticky header ── */}
+      {!isDesktop && (
+        <MobileHeader onOpenConfig={() => setSidebarOpen(true)} busy={busy} bp={bp} />
+      )}
 
-        <div style={{ flex: 1, padding: '4px 20px 24px' }}>
-          <SSection title="Loan Details">
-            <SField label="Principal Outstanding" tip="Your loan balance as of the last payment date.">
-              <SInput value={loan.principal} onChange={v => set('principal', v)} prefix="R" step={1000} min={1} />
-            </SField>
-            <SField label="Monthly Instalment" tip="Your normal monthly instalment debited each month.">
-              <SInput value={loan.instalment} onChange={v => set('instalment', v)} prefix="R" step={500} min={1} />
-            </SField>
-            <SField label="Payment Day of Month" tip="Which day of the month does your payment come off?">
-              <SInput value={loan.payDay} onChange={v => set('payDay', Math.max(1, Math.min(31, Math.round(v))))} step={1} min={1} max={31} />
-            </SField>
-          </SSection>
-
-          <SSection title="Interest Rules">
-            <SField label="Annual Rate (%)" tip="Your loan's interest rate per year.">
-              <SInput value={loan.annualRate} onChange={v => set('annualRate', v)} suffix="%" step={0.01} min={0.01} />
-            </SField>
-            <SField label="Day Count Convention" tip="How your bank counts days. Most SA banks use ACT/365.">
-              <SSelect value={loan.convention} onChange={v => set('convention', v)} options={[['ACT/365', 'ACT/365 (Most common in SA)'], ['ACT/366', 'ACT/366'], ['ACT/ACT', 'ACT/ACT'], ['30/360 ISDA', '30/360 ISDA (US)']]} />
-            </SField>
-            <SField label="Interest Posting Rule" tip="How interest gets added to your loan each month.">
-              <SSelect value={loan.postingRule} onChange={v => set('postingRule', v)} options={[['POST_MONTHLY_TO_INTEREST_DUE', 'Post to Interest Due (Most common)'], ['CAPITALISE_MONTHLY', 'Capitalise Monthly (Rare)']]} />
-            </SField>
-            <SField label="Interest Posting Day (1–31)" tip="Day of each month when interest is posted.">
-              <SInput value={loan.postingDay} onChange={v => set('postingDay', Math.max(1, Math.min(31, Math.round(v))))} step={1} min={1} max={31} />
-            </SField>
-          </SSection>
-
-          <SSection title="Payment Rules" open={false}>
-            <SField label="Interest Settlement Rule" tip="When you pay, what interest gets deducted?">
-              <SSelect value={loan.settlementRule} onChange={v => set('settlementRule', v)} options={[['SETTLE_POSTED_PLUS_ACCRUED', 'Posted + Accrued (Recommended)'], ['SETTLE_POSTED_ONLY', 'Posted Only']]} />
-            </SField>
-            <SField label="Weekend Payment Handling" tip="If payment falls on a weekend, when does it process?">
-              <SSelect value={loan.weekendRule} onChange={v => set('weekendRule', v)} options={[['NEXT_BUSINESS_DAY', 'Next Business Day (Most common)'], ['PREV_BUSINESS_DAY', 'Previous Business Day'], ['NONE', 'No Adjustment']]} />
-            </SField>
-            <div style={{ background: 'rgba(0,0,0,.05)', border: `1px solid ${SBORDER}`, borderRadius: 6, padding: '8px 10px', fontSize: 11, color: SMUTED, lineHeight: 1.6, marginTop: 2 }}>
-              <span style={{ color: '#374151', fontWeight: 600 }}>Payment order:</span> Interest Due → Principal
-            </div>
-          </SSection>
-        </div>
-
-        {busy && (
-          <div style={{ padding: '8px 20px', fontSize: 9, fontWeight: 700, color: '#059669', letterSpacing: '.1em', textTransform: 'uppercase', borderTop: '1px solid rgba(0,0,0,.07)', animation: 'pulse 1.2s infinite' }}>
-            ⟳ Recalculating
+      {/* ── Desktop sidebar (always visible) ── */}
+      {isDesktop && (
+        <div className="glass-sidebar" style={{ width: 288, flexShrink: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: '22px 20px 12px' }}>
+            <div style={{ fontSize: 8, fontWeight: 800, color: 'rgba(0,0,0,.3)', letterSpacing: '.2em', textTransform: 'uppercase', marginBottom: 6 }}>South Africa</div>
+            <div style={{ fontFamily: 'Syne,sans-serif', fontSize: 20, fontWeight: 800, color: '#1A1814', lineHeight: 1.15 }}>Loan Payoff<br />Simulator</div>
+            <div style={{ fontSize: 11, color: SMUTED, marginTop: 8, lineHeight: 1.5 }}>Daily-accurate interest accrual. Results update live.</div>
           </div>
-        )}
-      </div>
+          <div style={{ flex: 1, padding: '4px 20px 24px' }}>
+            <SidebarFields loan={loan} set={set} busy={busy} />
+          </div>
+        </div>
+      )}
+
+      {/* ── Tablet: slide-in drawer ── */}
+      {bp === 'tablet' && (
+        <SidebarDrawer open={sidebarOpen} onClose={() => setSidebarOpen(false)}>
+          <SidebarFields loan={loan} set={set} busy={busy} />
+        </SidebarDrawer>
+      )}
+
+      {/* ── Mobile: bottom sheet ── */}
+      {isMobile && (
+        <BottomSheet open={sidebarOpen} onClose={() => setSidebarOpen(false)}>
+          <SidebarFields loan={loan} set={set} busy={busy} />
+        </BottomSheet>
+      )}
 
       {/* ══ MAIN ══ */}
-      <div style={{ flex: 1, overflowY: 'auto', minWidth: 0 }}>
-        <div style={{ padding: '20px 24px', maxWidth: 960, display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={isDesktop
+        ? { flex: 1, overflowY: 'auto', minWidth: 0 }
+        : { flex: 1 }
+      }>
+        <div style={{ padding: contentPad, maxWidth: 960, display: 'flex', flexDirection: 'column', gap: contentGap }}>
 
           {/* ── HERO ── */}
-          <div className="glass" style={{ borderRadius: 14, padding: '22px 26px', position: 'relative', overflow: 'hidden' }}>
+          <div className="glass" style={{ borderRadius: 14, padding: isMobile ? '18px 18px' : '22px 26px', position: 'relative', overflow: 'hidden' }}>
             {hasExtra && intSaved > 0 && (
               <div style={{ position: 'absolute', top: -60, right: -60, width: 240, height: 240, background: '#059669', borderRadius: '50%', opacity: .08, pointerEvents: 'none' }} />
             )}
@@ -641,66 +841,130 @@ export default function App() {
             {!hasExtra ? (
               <div>
                 <div style={{ fontSize: 9, fontWeight: 700, color: SMUTED, textTransform: 'uppercase', letterSpacing: '.1em', marginBottom: 16 }}>Your current loan trajectory</div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)' }}>
-                  {[
-                    { l: 'Payoff Date', v: loading ? '—' : fmtDate(b!.payoffDate, { month: 'short', year: 'numeric' }), sub: loading ? '…' : fmtMonths(b!.totalMonths), big: true, c: '#1A1814' },
-                    { l: 'Total Interest', v: loading ? '—' : fmt(b!.totalInterest), sub: 'over loan term', big: false, c: '#DC2626' },
-                    { l: 'Monthly Payment', v: fmt(loan.instalment), sub: 'Drag slider to explore →', big: false, c: '#1A1814' },
-                  ].map((item, i) => (
-                    <div key={i} style={{ borderRight: i < 2 ? '1px solid rgba(0,0,0,.09)' : 'none', paddingRight: i < 2 ? 22 : 0, paddingLeft: i > 0 ? 22 : 0 }}>
-                      <div style={{ fontSize: 9, fontWeight: 700, color: SMUTED, textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 8 }}>{item.l}</div>
-                      <div style={{ fontFamily: item.big ? 'Syne,sans-serif' : 'JetBrains Mono,monospace', fontSize: item.big ? 26 : 22, fontWeight: item.big ? 800 : 600, color: item.c, lineHeight: 1.1 }}>
-                        <Val v={item.v} />
+                {isMobile ? (
+                  <div>
+                    {/* Payoff date — full width on mobile */}
+                    <div style={{ paddingBottom: 16, marginBottom: 16, borderBottom: '1px solid rgba(0,0,0,.08)' }}>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: SMUTED, textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 8 }}>Payoff Date</div>
+                      <div style={{ fontFamily: 'Syne,sans-serif', fontSize: 28, fontWeight: 800, color: '#1A1814', lineHeight: 1.1 }}>
+                        <Val v={loading ? '—' : fmtDate(b!.payoffDate, { month: 'short', year: 'numeric' })} />
                       </div>
-                      <div style={{ fontSize: 11, color: SMUTED, marginTop: 5 }}>{item.sub}</div>
+                      <div style={{ fontSize: 12, color: SMUTED, marginTop: 5 }}>{loading ? '…' : fmtMonths(b!.totalMonths)}</div>
                     </div>
-                  ))}
-                </div>
+                    {/* Total interest + monthly payment — 2 columns */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0 }}>
+                      <div style={{ paddingRight: 16, borderRight: '1px solid rgba(0,0,0,.08)' }}>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: SMUTED, textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 8 }}>Total Interest</div>
+                        <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 17, fontWeight: 600, color: '#DC2626', lineHeight: 1.1 }}>
+                          <Val v={loading ? '—' : fmt(b!.totalInterest)} />
+                        </div>
+                        <div style={{ fontSize: 11, color: SMUTED, marginTop: 4 }}>over term</div>
+                      </div>
+                      <div style={{ paddingLeft: 16 }}>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: SMUTED, textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 8 }}>Monthly Payment</div>
+                        <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 17, fontWeight: 600, color: '#1A1814', lineHeight: 1.1 }}>
+                          <Val v={fmt(loan.instalment)} />
+                        </div>
+                        <div style={{ fontSize: 11, color: SMUTED, marginTop: 4 }}>Drag slider →</div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)' }}>
+                    {[
+                      { l: 'Payoff Date', v: loading ? '—' : fmtDate(b!.payoffDate, { month: 'short', year: 'numeric' }), sub: loading ? '…' : fmtMonths(b!.totalMonths), big: true, c: '#1A1814' },
+                      { l: 'Total Interest', v: loading ? '—' : fmt(b!.totalInterest), sub: 'over loan term', big: false, c: '#DC2626' },
+                      { l: 'Monthly Payment', v: fmt(loan.instalment), sub: 'Drag slider to explore →', big: false, c: '#1A1814' },
+                    ].map((item, i) => (
+                      <div key={i} style={{ borderRight: i < 2 ? '1px solid rgba(0,0,0,.09)' : 'none', paddingRight: i < 2 ? 22 : 0, paddingLeft: i > 0 ? 22 : 0 }}>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: SMUTED, textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 8 }}>{item.l}</div>
+                        <div style={{ fontFamily: item.big ? 'Syne,sans-serif' : 'JetBrains Mono,monospace', fontSize: item.big ? 26 : 22, fontWeight: item.big ? 800 : 600, color: item.c, lineHeight: 1.1 }}>
+                          <Val v={item.v} />
+                        </div>
+                        <div style={{ fontSize: 11, color: SMUTED, marginTop: 5 }}>{item.sub}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             ) : (
               <div>
                 <div style={{ fontSize: 9, fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '.1em', marginBottom: 16 }}>
                   With {fmt(loan.extraMonthly)}/month extra{lumpTotal > 0 ? ` + ${fmt(lumpTotal)} lump sums` : ''}
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr' }}>
-                  <div style={{ borderRight: '1px solid rgba(0,0,0,.09)', paddingRight: 24 }}>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: SMUTED, textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 8 }}>You will be debt-free</div>
-                    <div style={{ fontFamily: 'Syne,sans-serif', fontSize: 30, fontWeight: 800, color: '#059669', lineHeight: 1 }}>
-                      <Val v={loading ? '—' : moSaved > 0 ? fmtMonths(moSaved) : '—'} />
+                {isMobile ? (
+                  <div>
+                    {/* Time saved — full width on mobile */}
+                    <div style={{ paddingBottom: 16, marginBottom: 16, borderBottom: '1px solid rgba(0,0,0,.08)' }}>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: SMUTED, textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 8 }}>You will be debt-free</div>
+                      <div style={{ fontFamily: 'Syne,sans-serif', fontSize: 30, fontWeight: 800, color: '#059669', lineHeight: 1 }}>
+                        <Val v={loading ? '—' : moSaved > 0 ? fmtMonths(moSaved) : '—'} />
+                      </div>
+                      <div style={{ fontSize: 12, color: SMUTED, marginTop: 6 }}>earlier than baseline</div>
                     </div>
-                    <div style={{ fontSize: 11, color: SMUTED, marginTop: 6 }}>earlier than your baseline</div>
+                    {/* Interest saved + new payoff date — 2 columns */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0 }}>
+                      <div style={{ paddingRight: 16, borderRight: '1px solid rgba(0,0,0,.08)' }}>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: SMUTED, textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 8 }}>Interest Saved</div>
+                        <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 17, fontWeight: 600, color: '#059669', lineHeight: 1 }}>
+                          <Val v={loading ? '—' : intSaved > 0 ? fmt(intSaved) : '—'} />
+                        </div>
+                        <div style={{ fontSize: 11, color: SMUTED, marginTop: 4 }}>
+                          {!loading && intSaved > 0 && b ? fmtPct(intSaved / b.totalInterest) : ''}
+                        </div>
+                      </div>
+                      <div style={{ paddingLeft: 16 }}>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: SMUTED, textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 8 }}>New Payoff Date</div>
+                        <div style={{ fontFamily: 'Syne,sans-serif', fontSize: 18, fontWeight: 800, color: '#1A1814', lineHeight: 1.1 }}>
+                          <Val v={!loading && s ? fmtDate(s.payoffDate, { month: 'short', year: 'numeric' }) : '—'} />
+                        </div>
+                        <div style={{ fontSize: 11, color: SMUTED, marginTop: 4 }}>
+                          vs {!loading && b ? fmtDate(b.payoffDate, { month: 'short', year: 'numeric' }) : '—'}
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div style={{ borderRight: '1px solid rgba(0,0,0,.09)', padding: '0 24px' }}>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: SMUTED, textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 8 }}>Interest Saved</div>
-                    <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 24, fontWeight: 600, color: '#059669', lineHeight: 1 }}>
-                      <Val v={loading ? '—' : intSaved > 0 ? fmt(intSaved) : '—'} />
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr' }}>
+                    <div style={{ borderRight: '1px solid rgba(0,0,0,.09)', paddingRight: 24 }}>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: SMUTED, textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 8 }}>You will be debt-free</div>
+                      <div style={{ fontFamily: 'Syne,sans-serif', fontSize: 30, fontWeight: 800, color: '#059669', lineHeight: 1 }}>
+                        <Val v={loading ? '—' : moSaved > 0 ? fmtMonths(moSaved) : '—'} />
+                      </div>
+                      <div style={{ fontSize: 11, color: SMUTED, marginTop: 6 }}>earlier than your baseline</div>
                     </div>
-                    <div style={{ fontSize: 11, color: SMUTED, marginTop: 6 }}>
-                      {!loading && intSaved > 0 && b ? fmtPct(intSaved / b.totalInterest) + ' of total interest' : ''}
+                    <div style={{ borderRight: '1px solid rgba(0,0,0,.09)', padding: '0 24px' }}>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: SMUTED, textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 8 }}>Interest Saved</div>
+                      <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 24, fontWeight: 600, color: '#059669', lineHeight: 1 }}>
+                        <Val v={loading ? '—' : intSaved > 0 ? fmt(intSaved) : '—'} />
+                      </div>
+                      <div style={{ fontSize: 11, color: SMUTED, marginTop: 6 }}>
+                        {!loading && intSaved > 0 && b ? fmtPct(intSaved / b.totalInterest) + ' of total interest' : ''}
+                      </div>
+                    </div>
+                    <div style={{ paddingLeft: 24 }}>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: SMUTED, textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 8 }}>New Payoff Date</div>
+                      <div style={{ fontFamily: 'Syne,sans-serif', fontSize: 20, fontWeight: 800, color: '#1A1814', lineHeight: 1.1 }}>
+                        <Val v={!loading && s ? fmtDate(s.payoffDate, { month: 'short', year: 'numeric' }) : '—'} />
+                      </div>
+                      <div style={{ fontSize: 11, color: SMUTED, marginTop: 6 }}>
+                        vs {!loading && b ? fmtDate(b.payoffDate, { month: 'short', year: 'numeric' }) : '—'} baseline
+                      </div>
                     </div>
                   </div>
-                  <div style={{ paddingLeft: 24 }}>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: SMUTED, textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 8 }}>New Payoff Date</div>
-                    <div style={{ fontFamily: 'Syne,sans-serif', fontSize: 20, fontWeight: 800, color: '#1A1814', lineHeight: 1.1 }}>
-                      <Val v={!loading && s ? fmtDate(s.payoffDate, { month: 'short', year: 'numeric' }) : '—'} />
-                    </div>
-                    <div style={{ fontSize: 11, color: SMUTED, marginTop: 6 }}>
-                      vs {!loading && b ? fmtDate(b.payoffDate, { month: 'short', year: 'numeric' }) : '—'} baseline
-                    </div>
-                  </div>
-                </div>
+                )}
               </div>
             )}
           </div>
 
           {/* ── WHAT-IF CONTROLS ── */}
-          <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #E4E0DA', padding: '20px 22px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 }}>
+          <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #E4E0DA', padding: isMobile ? '16px 16px' : '20px 22px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18, gap: 12 }}>
               <div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: '#1A1814', marginBottom: 2 }}>What-if Scenario</div>
                 <div style={{ fontSize: 11, color: '#9CA3AF' }}>See how extra payments change your outcome in real time</div>
               </div>
-              <button onClick={() => openModal('add')} style={{ background: '#1A1814', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 12, fontWeight: 700, boxShadow: '0 2px 8px rgba(0,0,0,.15)', letterSpacing: '.02em' }}>
+              <button onClick={() => openModal('add')} style={{ background: '#1A1814', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 14px', fontSize: 12, fontWeight: 700, boxShadow: '0 2px 8px rgba(0,0,0,.15)', letterSpacing: '.02em', whiteSpace: 'nowrap', minHeight: 40, cursor: 'pointer', flexShrink: 0 }}>
                 + Lump Sum
               </button>
             </div>
@@ -708,7 +972,7 @@ export default function App() {
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 }}>
                 <span style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '.08em' }}>Extra Monthly Payment</span>
-                <span style={{ fontFamily: 'Syne,sans-serif', fontSize: 28, fontWeight: 800, color: loan.extraMonthly > 0 ? '#2563EB' : '#D4D0C8', transition: 'color .2s' }}>
+                <span style={{ fontFamily: 'Syne,sans-serif', fontSize: isMobile ? 24 : 28, fontWeight: 800, color: loan.extraMonthly > 0 ? '#2563EB' : '#D4D0C8', transition: 'color .2s' }}>
                   <Val v={fmt(loan.extraMonthly)} />
                 </span>
               </div>
@@ -732,15 +996,15 @@ export default function App() {
                       <span style={{ fontFamily: 'JetBrains Mono', fontWeight: 700, fontSize: 12, color: '#166534' }}>{fmt(ls.amount)}</span>
                       <span style={{ fontSize: 11, color: '#6B7280' }}>· {fmtDate(new Date(ls.date + 'T00:00:00'), { month: 'short', year: 'numeric' })}</span>
                       {ls.label && <span style={{ fontSize: 11, color: '#9CA3AF' }}>· {ls.label}</span>}
-                      <button onClick={() => openModal('edit', i)} style={{ background: 'none', border: 'none', color: '#2563EB', fontSize: 11, fontWeight: 700, padding: '0 3px' }}>Edit</button>
-                      <button onClick={() => delL(i)} style={{ background: 'none', border: 'none', color: '#EF4444', fontSize: 15, lineHeight: '1', padding: '0 3px' }}>×</button>
+                      <button onClick={() => openModal('edit', i)} style={{ background: 'none', border: 'none', color: '#2563EB', fontSize: 11, fontWeight: 700, padding: '0 3px', cursor: 'pointer' }}>Edit</button>
+                      <button onClick={() => delL(i)} style={{ background: 'none', border: 'none', color: '#EF4444', fontSize: 15, lineHeight: '1', padding: '0 3px', cursor: 'pointer' }}>×</button>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, fontSize: 12, color: '#9CA3AF', cursor: 'pointer' }} title="When ON: lump sums skip interest and reduce loan balance directly.">
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, padding: '6px 0', fontSize: 12, color: '#9CA3AF', cursor: 'pointer' }} title="When ON: lump sums skip interest and reduce loan balance directly.">
               <input type="checkbox" checked={loan.lumpDirectToPrincipal} onChange={e => set('lumpDirectToPrincipal', e.target.checked)} />
               Apply lump sums directly to principal
             </label>
@@ -748,7 +1012,7 @@ export default function App() {
 
           {/* ── TIMELINE ── */}
           {!loading && b && (
-            <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #E4E0DA', padding: '18px 22px' }}>
+            <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #E4E0DA', padding: isMobile ? '14px 16px' : '18px 22px' }}>
               <Timeline base={b} scen={s} hasExtra={hasExtra} />
             </div>
           )}
@@ -756,18 +1020,18 @@ export default function App() {
           {/* ── CHARTS ── */}
           {!loading && isOk(result) && (
             <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #E4E0DA', overflow: 'hidden' }}>
-              <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid #EDE9E3' }}>
+              <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid #EDE9E3', overflowX: 'auto' }}>
                 {TABS.map(t => (
                   <button key={t.id} onClick={() => setActiveChart(t.id)} style={{
-                    padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer',
-                    fontSize: 12, fontWeight: 600, fontFamily: 'DM Sans',
+                    padding: '11px 14px', background: 'none', border: 'none', cursor: 'pointer',
+                    fontSize: isMobile ? 11 : 12, fontWeight: 600, fontFamily: 'DM Sans',
                     color: activeChart === t.id ? '#1A1814' : '#9CA3AF',
                     borderBottom: `2px solid ${activeChart === t.id ? t.c : 'transparent'}`,
                     marginBottom: -1, whiteSpace: 'nowrap', transition: 'color .15s',
                   }}>{t.label}</button>
                 ))}
                 <div style={{ flex: 1 }} />
-                {hasExtra && (
+                {hasExtra && !isMobile && (
                   <div style={{ display: 'flex', gap: 14, padding: '0 16px' }}>
                     {[{ c: '#C8C5BE', l: 'Baseline' }, { c: tab.c, l: 'With Extras' }].map(x => (
                       <span key={x.l} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: '#9CA3AF' }}>
@@ -777,8 +1041,8 @@ export default function App() {
                   </div>
                 )}
               </div>
-              <div style={{ padding: '16px 20px 12px' }}>
-                <Chart data={chartData} series={chartSeries} h={200} />
+              <div style={{ padding: isMobile ? '12px 8px 8px' : '16px 20px 12px' }}>
+                <Chart data={chartData} series={chartSeries} h={chartH} />
               </div>
             </div>
           )}
@@ -786,7 +1050,7 @@ export default function App() {
           {/* ── AMORTISATION TABLE ── */}
           {!loading && b && (
             <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #E4E0DA', overflow: 'hidden' }}>
-              <button onClick={() => setShowTable(v => !v)} style={{ width: '100%', background: 'none', border: 'none', padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', fontFamily: 'DM Sans' }}>
+              <button onClick={() => setShowTable(v => !v)} style={{ width: '100%', background: 'none', border: 'none', padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', fontFamily: 'DM Sans', minHeight: 48 }}>
                 <span style={{ fontSize: 13, fontWeight: 700, color: '#1A1814' }}>
                   Amortisation Schedule{' '}
                   <span style={{ fontFamily: 'JetBrains Mono', fontSize: 11, fontWeight: 400, color: '#9CA3AF', marginLeft: 8 }}>{b.totalMonths} months</span>
@@ -795,7 +1059,7 @@ export default function App() {
               </button>
               {showTable && (
                 <div style={{ borderTop: '1px solid #EDE9E3' }}>
-                  <AmortTable base={b} scen={s} hasExtra={hasExtra} />
+                  <AmortTable base={b} scen={s} hasExtra={hasExtra} bp={bp} />
                 </div>
               )}
             </div>

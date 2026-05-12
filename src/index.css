@@ -6,6 +6,20 @@
 html, body, #root { width: 100%; height: 100%; overflow: hidden; }
 body { font-family: 'DM Sans', sans-serif; color: #1A1814; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 
+/* Mobile / tablet: let the page scroll naturally */
+@media (max-width: 1023px) {
+  html, body { height: auto; overflow-y: auto; }
+  #root { height: auto; overflow: visible; }
+}
+
+/* Prevent iOS from zooming into inputs (requires font-size >= 16px on focus) */
+@media (max-width: 639px) {
+  input[type="number"],
+  input[type="text"],
+  input[type="date"],
+  select { font-size: 16px !important; }
+}
+
 #bg {
   position: fixed; inset: 0; z-index: 0;
   background: #EEE9E2;
@@ -45,6 +59,10 @@ body { font-family: 'DM Sans', sans-serif; color: #1A1814; -webkit-font-smoothin
 input[type=range] { -webkit-appearance: none; appearance: none; background: transparent; cursor: pointer; width: 100%; height: 24px; }
 input[type=range]::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; background: transparent; }
 input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%; background: #fff; border: 3px solid #2563EB; box-shadow: 0 2px 10px rgba(37,99,235,.35); margin-top: -8px; }
+@media (max-width: 1023px) {
+  input[type=range]::-webkit-slider-thumb { width: 28px; height: 28px; margin-top: -11px; border-width: 3px; }
+  input[type=range] { height: 32px; }
+}
 input[type=number]::-webkit-inner-spin-button { opacity: .3; }
 input:focus, select:focus { outline: none; }
 button { cursor: pointer; font-family: inherit; }
